@@ -1,0 +1,16 @@
+{
+  "name": "hwp-tools-marketplace",
+  "owner": {
+    "name": "rooney"
+  },
+  "metadata": {
+    "description": "macOS/Linux에서 HWP/HWPX 파일을 다루는 Claude Code 플러그인"
+  },
+  "plugins": [
+    {
+      "name": "hwp",
+      "source": "./",
+      "description": "HWP/HWPX 파일 읽기/수정 도구 - 텍스트 추출, 표 읽기/수정, 텍스트 치환"
+    }
+  ]
+}
