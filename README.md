@@ -1,39 +1,39 @@
 # HWP Tools
 
-macOS/Linux에서 HWP 및 HWPX(한글) 파일을 읽고 수정하는 Claude Code 플러그인.
+A Claude Code plugin to read and edit HWP/HWPX (Korean Hangul Word Processor) files on macOS/Linux.
 
 ## About
 
-한글(HWP)은 한국에서 가장 널리 사용되는 문서 편집기이지만, macOS/Linux에서는 파일을 다루기 어렵습니다. HWP Tools는 Claude Code 스킬로 동작하며, Python 스크립트를 통해 HWP/HWPX 파일의 텍스트 추출, 표 읽기, 텍스트 치환, 표 수정 등을 지원합니다.
+HWP is the most widely used document format in South Korea, but handling HWP files on macOS/Linux has been difficult. HWP Tools is a Claude Code skill that uses Python scripts to extract text, read tables, replace text, and edit table cells in HWP/HWPX files.
 
 ## Features
 
-| 기능 | .hwp (바이너리) | .hwpx (XML) |
-|------|:---:|:---:|
-| 텍스트 추출 | O | O |
-| 표 추출 | O (셀 내용만) | O (행/열 구조 포함) |
-| 메타데이터 조회 | O | O |
-| 텍스트 치환 | - | O |
-| 표 셀 수정 | - | O |
-| 표 일괄 입력 | - | O |
+| Feature | .hwp (binary) | .hwpx (XML) |
+|---------|:---:|:---:|
+| Text extraction | O | O |
+| Table extraction | O (cell content only) | O (with row/col structure) |
+| Metadata | O | O |
+| Text replacement | - | O |
+| Table cell editing | - | O |
+| Bulk table fill | - | O |
 
 ## Installation
 
-### 1. 마켓플레이스 추가
+### 1. Add marketplace
 
-Claude Code에서:
+In Claude Code:
 
 ```
 /plugin marketplace add HYUNSUK2/hwp-skill
 ```
 
-### 2. 플러그인 설치
+### 2. Install plugin
 
 ```
 /plugin install hwp@hwp-tools-marketplace
 ```
 
-### 3. Python 의존성 설치
+### 3. Install Python dependencies
 
 ```bash
 pip install olefile lxml cryptography
@@ -42,59 +42,59 @@ pip install olefile lxml cryptography
 ### Requirements
 
 - Python 3.8+
-- Claude Code (플러그인 지원 버전)
+- Claude Code (with plugin support)
 
 ## Usage
 
-플러그인 설치 후 Claude Code에서 HWP/HWPX 파일을 다루면 자동으로 스킬이 트리거됩니다.
+After installation, the skill triggers automatically when you work with HWP/HWPX files in Claude Code.
 
-### 텍스트 추출
-
-```
-이 HWP 파일의 내용을 읽어줘: /path/to/document.hwp
-```
-
-### 표 확인
+### Extract text
 
 ```
-이 HWPX 파일에 있는 표를 보여줘: /path/to/document.hwpx
+Read the contents of this file: /path/to/document.hwp
 ```
 
-### 텍스트 치환
+### Read tables
 
 ```
-이 HWPX 파일에서 "홍길동"을 "김철수"로 바꿔줘: /path/to/document.hwpx
+Show me the tables in /path/to/document.hwpx
 ```
 
-### 표 수정
+### Replace text (HWPX only)
 
 ```
-이 HWPX 파일의 첫 번째 표에서 2행 3열을 "수정값"으로 바꿔줘
+Replace "홍길동" with "김철수" in /path/to/document.hwpx
 ```
 
-## CLI 직접 사용
+### Edit table cell (HWPX only)
 
-스킬 없이 Python 스크립트를 직접 사용할 수도 있습니다:
+```
+Change row 2, column 3 of the first table to "100" in /path/to/file.hwpx
+```
+
+## CLI Usage
+
+You can also use the Python scripts directly without the skill:
 
 ```bash
-# 파일 정보
+# File info
 python scripts/hwp_utils.py info document.hwpx
 
-# 텍스트 추출
+# Extract text
 python scripts/hwp_utils.py text document.hwp
 
-# 표 추출
+# Read tables
 python scripts/hwp_utils.py tables document.hwpx
 
-# 텍스트 치환 (HWPX만)
-python scripts/hwp_utils.py replace document.hwpx --find "홍길동" --replace "김철수" --output output.hwpx
+# Replace text (HWPX only)
+python scripts/hwp_utils.py replace document.hwpx --find "old" --replace "new" --output output.hwpx
 
-# 표 셀 수정 (HWPX만)
-python scripts/hwp_utils.py cell document.hwpx --table 0 --row 1 --col 2 --value "새 값" --output output.hwpx
+# Edit table cell (HWPX only)
+python scripts/hwp_utils.py cell document.hwpx --table 0 --row 1 --col 2 --value "new value" --output output.hwpx
 
-# 표 일괄 입력 (HWPX만)
+# Bulk fill table (HWPX only)
 python scripts/hwp_utils.py fill-table document.hwpx --table 0 \
-  --data '[["이름","나이"],["홍길동","30"]]' --output output.hwpx
+  --data '[["Name","Age"],["Kim","30"]]' --output output.hwpx
 ```
 
 ## Project Structure
@@ -102,25 +102,25 @@ python scripts/hwp_utils.py fill-table document.hwpx --table 0 \
 ```
 hwp-skill/
 ├── .claude-plugin/
-│   └── plugin.json           # 플러그인 매니페스트
+│   └── plugin.json           # Plugin manifest
 ├── skills/
 │   └── hwp/
-│       └── SKILL.md          # 스킬 정의
+│       └── SKILL.md          # Skill definition
 └── scripts/
-    ├── requirements.txt      # Python 의존성
-    ├── install.sh            # 의존성 설치 스크립트
-    ├── hwp_utils.py          # 통합 CLI 엔트리포인트
-    ├── hwp_reader.py         # HWP 바이너리 읽기 (olefile)
-    ├── hwpx_reader.py        # HWPX 읽기 (ZIP + XML)
-    └── hwpx_editor.py        # HWPX 수정
+    ├── requirements.txt      # Python dependencies
+    ├── install.sh            # Dependency installer
+    ├── hwp_utils.py          # Unified CLI entry point
+    ├── hwp_reader.py         # HWP binary reader (olefile)
+    ├── hwpx_reader.py        # HWPX reader (ZIP + XML)
+    └── hwpx_editor.py        # HWPX editor
 ```
 
 ## Limitations
 
-- **HWP 바이너리 수정 불가**: HWP v5 포맷은 읽기만 지원합니다. 수정이 필요하면 HWPX로 변환 후 작업하세요.
-- **HWP 표 구조 제한**: HWP 바이너리에서 표의 행/열 구조를 정확히 복원하기 어렵습니다. 셀 내용만 순서대로 표시됩니다.
-- **새 문서 생성 미지원**: 기존 파일의 읽기/수정만 지원합니다.
-- **암호화된 파일 미지원**: 암호가 설정된 HWP 파일은 읽을 수 없습니다.
+- **HWP binary is read-only**: HWP v5 format only supports reading. Convert to HWPX for editing.
+- **HWP table structure is limited**: Row/column structure cannot be fully reconstructed from HWP binary. Cell contents are listed in order.
+- **No new document creation**: Only reading/editing of existing files is supported.
+- **Encrypted files not supported**: Password-protected HWP files cannot be read.
 
 ## License
 
