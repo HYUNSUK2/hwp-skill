@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HWPX 파일 수정 - ZIP 압축 해제 → XML 수정 → 재압축"""
+"""HWPX file editor - unzip, modify XML, repack"""
 import os
 import sys
 import json
@@ -9,7 +9,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 
 
-# HWPX XML 네임스페이스
+# HWPX XML namespaces
 NAMESPACES = {
     "hp": "http://www.hancom.co.kr/hwpml/2011/paragraph",
     "hs": "http://www.hancom.co.kr/hwpml/2011/section",
@@ -29,10 +29,10 @@ class HwpxEditor:
     def __init__(self, filepath):
         self.filepath = filepath
         if not os.path.exists(filepath):
-            raise FileNotFoundError(f"파일을 찾을 수 없습니다: {filepath}")
+            raise FileNotFoundError(f"File not found: {filepath}")
 
     def _find_content_files(self, zf):
-        """content XML 파일들을 찾는다"""
+        """Find content XML files"""
         content_files = []
         for name in sorted(zf.namelist()):
             lower = name.lower()
@@ -46,8 +46,8 @@ class HwpxEditor:
         return content_files
 
     def _repack_zip(self, temp_dir, output_path):
-        """임시 디렉토리를 다시 ZIP으로 압축한다"""
-        # 원본의 파일 순서를 유지하기 위해 원본 목록을 먼저 가져온다
+        """Repack temp directory back into a ZIP file"""
+        # Preserve original file order
         with zipfile.ZipFile(self.filepath, "r") as orig_zf:
             original_names = orig_zf.namelist()
 
@@ -57,7 +57,7 @@ class HwpxEditor:
                 if os.path.exists(file_path):
                     zf.write(file_path, name)
 
-            # 원본에 없는 새 파일 추가 (있을 경우)
+            # Add any new files not in original
             for root, dirs, files in os.walk(temp_dir):
                 for f in files:
                     full_path = os.path.join(root, f)
@@ -66,7 +66,7 @@ class HwpxEditor:
                         zf.write(full_path, arcname)
 
     def replace_text(self, find_text, replace_text, output_path=None):
-        """HWPX 파일에서 텍스트를 치환한다"""
+        """Replace text in HWPX file"""
         if output_path is None:
             output_path = self.filepath
 
@@ -74,12 +74,12 @@ class HwpxEditor:
             temp_dir = tempfile.mkdtemp()
             replace_count = 0
 
-            # ZIP 압축 해제
+            # Extract ZIP
             with zipfile.ZipFile(self.filepath, "r") as zf:
                 zf.extractall(temp_dir)
                 content_files = self._find_content_files(zf)
 
-            # 각 콘텐츠 파일에서 텍스트 치환
+            # Replace text in each content file
             for cf in content_files:
                 cf_path = os.path.join(temp_dir, cf)
                 if not os.path.exists(cf_path):
@@ -97,17 +97,17 @@ class HwpxEditor:
                 shutil.rmtree(temp_dir)
                 return {
                     "success": False,
-                    "message": f"'{find_text}'를 찾을 수 없습니다",
+                    "message": f"'{find_text}' not found",
                     "replacements": 0,
                 }
 
-            # 재압축
+            # Repack
             self._repack_zip(temp_dir, output_path)
             shutil.rmtree(temp_dir)
 
             return {
                 "success": True,
-                "message": f"'{find_text}' → '{replace_text}' 치환 완료",
+                "message": f"Replaced '{find_text}' with '{replace_text}'",
                 "replacements": replace_count,
                 "output": output_path,
             }
@@ -117,7 +117,7 @@ class HwpxEditor:
             return {"success": False, "error": str(e)}
 
     def _replace_text_in_element(self, elem, find_text, replace_text):
-        """XML 요소 내 텍스트를 재귀적으로 치환한다"""
+        """Recursively replace text in XML element"""
         count = 0
 
         if elem.text and find_text in elem.text:
@@ -134,7 +134,7 @@ class HwpxEditor:
         return count
 
     def edit_table_cell(self, table_idx, row, col, value, output_path=None):
-        """HWPX 파일의 표 셀을 수정한다"""
+        """Edit a table cell in HWPX file"""
         if output_path is None:
             output_path = self.filepath
 
@@ -145,7 +145,7 @@ class HwpxEditor:
                 zf.extractall(temp_dir)
                 content_files = self._find_content_files(zf)
 
-            # 테이블 찾기
+            # Find target table
             current_table_idx = 0
             modified = False
 
@@ -168,7 +168,7 @@ class HwpxEditor:
                             shutil.rmtree(temp_dir)
                             return {
                                 "success": False,
-                                "error": f"셀 ({row}, {col})을 찾을 수 없습니다",
+                                "error": f"Cell ({row}, {col}) not found",
                             }
                         break
                     current_table_idx += 1
@@ -180,7 +180,7 @@ class HwpxEditor:
                 shutil.rmtree(temp_dir)
                 return {
                     "success": False,
-                    "error": f"표 인덱스 {table_idx}를 찾을 수 없습니다 (총 {current_table_idx}개)",
+                    "error": f"Table index {table_idx} not found (total: {current_table_idx})",
                 }
 
             self._repack_zip(temp_dir, output_path)
@@ -188,7 +188,7 @@ class HwpxEditor:
 
             return {
                 "success": True,
-                "message": f"표[{table_idx}] 셀({row},{col}) = '{value}' 수정 완료",
+                "message": f"Table[{table_idx}] cell({row},{col}) = '{value}' updated",
                 "output": output_path,
             }
         except Exception as e:
@@ -197,7 +197,7 @@ class HwpxEditor:
             return {"success": False, "error": str(e)}
 
     def fill_table(self, table_idx, data, start_row=0, start_col=0, output_path=None):
-        """HWPX 파일의 표에 데이터를 일괄 입력한다"""
+        """Bulk fill table data in HWPX file"""
         if output_path is None:
             output_path = self.filepath
 
@@ -241,7 +241,7 @@ class HwpxEditor:
                 shutil.rmtree(temp_dir)
                 return {
                     "success": False,
-                    "error": f"표 인덱스 {table_idx}를 찾을 수 없습니다",
+                    "error": f"Table index {table_idx} not found",
                 }
 
             self._repack_zip(temp_dir, output_path)
@@ -249,7 +249,7 @@ class HwpxEditor:
 
             return {
                 "success": True,
-                "message": f"표[{table_idx}]에 {cells_filled}개 셀 입력 완료",
+                "message": f"Filled {cells_filled} cells in table[{table_idx}]",
                 "cells_filled": cells_filled,
                 "output": output_path,
             }
@@ -259,7 +259,7 @@ class HwpxEditor:
             return {"success": False, "error": str(e)}
 
     def _find_tables(self, root):
-        """XML 트리에서 테이블 요소를 찾는다"""
+        """Find table elements in XML tree"""
         tables = []
         for elem in root.iter():
             tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
@@ -268,7 +268,7 @@ class HwpxEditor:
         return tables
 
     def _get_table_rows(self, tbl_elem):
-        """테이블에서 행 요소들을 가져온다"""
+        """Get row elements from table"""
         rows = []
         for child in tbl_elem.iter():
             tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
@@ -277,7 +277,7 @@ class HwpxEditor:
         return rows
 
     def _get_row_cells(self, row_elem):
-        """행에서 셀 요소들을 가져온다"""
+        """Get cell elements from row"""
         cells = []
         for child in row_elem:
             tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
@@ -286,7 +286,7 @@ class HwpxEditor:
         return cells
 
     def _set_cell_value(self, tbl_elem, row, col, value):
-        """테이블 셀의 텍스트를 설정한다"""
+        """Set text value of a table cell"""
         rows = self._get_table_rows(tbl_elem)
         if row >= len(rows):
             return False
@@ -296,7 +296,7 @@ class HwpxEditor:
             return False
 
         cell = cells[col]
-        # 셀 내부의 텍스트 요소를 찾아서 수정
+        # Find and modify text element in cell
         text_set = False
         for elem in cell.iter():
             tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
@@ -305,9 +305,8 @@ class HwpxEditor:
                 text_set = True
                 break
 
-        # 텍스트 요소가 없으면 직접 설정 시도
+        # If no text element found, try to set via run element
         if not text_set:
-            # 가장 깊은 paragraph/run을 찾아서 텍스트 설정
             for elem in cell.iter():
                 tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
                 if tag.lower() in ("run", "r"):
@@ -318,8 +317,7 @@ class HwpxEditor:
                             text_set = True
                             break
                     if not text_set:
-                        # t 요소가 없으면 생성
-                        # 네임스페이스 추론
+                        # Create t element if missing
                         ns = elem.tag.split("}")[0] + "}" if "}" in elem.tag else ""
                         t_elem = ET.SubElement(elem, f"{ns}t")
                         t_elem.text = value
@@ -332,33 +330,33 @@ class HwpxEditor:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="HWPX 파일 수정 도구")
-    subparsers = parser.add_subparsers(dest="command", help="명령어")
+    parser = argparse.ArgumentParser(description="HWPX file editor")
+    subparsers = parser.add_subparsers(dest="command", help="Command")
 
     # replace
-    p_replace = subparsers.add_parser("replace", help="텍스트 치환")
-    p_replace.add_argument("filepath", help="HWPX 파일 경로")
-    p_replace.add_argument("--find", required=True, help="찾을 텍스트")
-    p_replace.add_argument("--replace", required=True, help="바꿀 텍스트")
-    p_replace.add_argument("--output", help="출력 파일 경로")
+    p_replace = subparsers.add_parser("replace", help="Replace text")
+    p_replace.add_argument("filepath", help="HWPX file path")
+    p_replace.add_argument("--find", required=True, help="Text to find")
+    p_replace.add_argument("--replace", required=True, help="Replacement text")
+    p_replace.add_argument("--output", help="Output file path")
 
     # cell
-    p_cell = subparsers.add_parser("cell", help="표 셀 수정")
-    p_cell.add_argument("filepath", help="HWPX 파일 경로")
-    p_cell.add_argument("--table", type=int, required=True, help="표 인덱스 (0부터)")
-    p_cell.add_argument("--row", type=int, required=True, help="행 (0부터)")
-    p_cell.add_argument("--col", type=int, required=True, help="열 (0부터)")
-    p_cell.add_argument("--value", required=True, help="새 값")
-    p_cell.add_argument("--output", help="출력 파일 경로")
+    p_cell = subparsers.add_parser("cell", help="Edit table cell")
+    p_cell.add_argument("filepath", help="HWPX file path")
+    p_cell.add_argument("--table", type=int, required=True, help="Table index (0-based)")
+    p_cell.add_argument("--row", type=int, required=True, help="Row (0-based)")
+    p_cell.add_argument("--col", type=int, required=True, help="Column (0-based)")
+    p_cell.add_argument("--value", required=True, help="New value")
+    p_cell.add_argument("--output", help="Output file path")
 
     # fill-table
-    p_fill = subparsers.add_parser("fill-table", help="표 데이터 일괄 입력")
-    p_fill.add_argument("filepath", help="HWPX 파일 경로")
-    p_fill.add_argument("--table", type=int, required=True, help="표 인덱스 (0부터)")
-    p_fill.add_argument("--data", required=True, help="JSON 2차원 배열")
-    p_fill.add_argument("--start-row", type=int, default=0, help="시작 행")
-    p_fill.add_argument("--start-col", type=int, default=0, help="시작 열")
-    p_fill.add_argument("--output", help="출력 파일 경로")
+    p_fill = subparsers.add_parser("fill-table", help="Bulk fill table data")
+    p_fill.add_argument("filepath", help="HWPX file path")
+    p_fill.add_argument("--table", type=int, required=True, help="Table index (0-based)")
+    p_fill.add_argument("--data", required=True, help="JSON 2D array")
+    p_fill.add_argument("--start-row", type=int, default=0, help="Start row")
+    p_fill.add_argument("--start-col", type=int, default=0, help="Start column")
+    p_fill.add_argument("--output", help="Output file path")
 
     args = parser.parse_args()
 

@@ -1,119 +1,119 @@
 ---
 name: hwp
-description: macOS/Linux에서 HWP 및 HWPX 파일을 읽고 수정하는 도구. HWP 파일 텍스트 추출, 표 읽기, 메타데이터 조회, HWPX 파일 텍스트 치환 및 표 수정이 가능하다. 사용자가 HWP 파일을 열거나, HWP 내용을 확인하거나, HWP 문서를 수정하거나, 한글 파일을 다루려 할 때 이 스킬을 사용한다.
+description: Read and edit HWP/HWPX (Korean Hangul Word Processor) files on macOS/Linux. Supports text extraction, table reading, metadata inspection, text replacement, and table cell editing. Use this skill when the user wants to open, read, edit, or inspect HWP or HWPX files, or work with Korean Hangul documents.
 ---
 
-# HWP/HWPX 파일 도구
+# HWP/HWPX File Tools
 
-macOS/Linux에서 HWP(한글) 파일을 읽고 수정하는 Python 스크립트 도구.
+Python scripts for reading and editing HWP (Hangul Word Processor) files on macOS/Linux.
 
-## 지원 범위
+## Supported Features
 
-| 기능 | .hwp (바이너리) | .hwpx (XML) |
-|------|:---:|:---:|
-| 텍스트 추출 | O | O |
-| 표 추출 | O (셀 내용만) | O (행/열 구조 포함) |
-| 메타데이터 | O | O |
-| 텍스트 치환 | X | O |
-| 표 셀 수정 | X | O |
+| Feature | .hwp (binary) | .hwpx (XML) |
+|---------|:---:|:---:|
+| Text extraction | O | O |
+| Table extraction | O (cell content only) | O (with row/col structure) |
+| Metadata | O | O |
+| Text replacement | X | O |
+| Table cell editing | X | O |
 
-## 사전 요구사항
+## Prerequisites
 
-의존성이 설치되어 있지 않으면 먼저 설치한다:
+Install dependencies if not already present:
 
 ```bash
 pip install olefile lxml cryptography
 ```
 
-또는 설치 스크립트 실행:
+Or run the install script:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/install.sh
 ```
 
-## 사용법
+## Usage
 
-모든 스크립트는 `${CLAUDE_PLUGIN_ROOT}/scripts/` 경로에 있다.
-통합 엔트리포인트 `hwp_utils.py`를 사용하거나, 개별 스크립트를 직접 호출할 수 있다.
+All scripts are located at `${CLAUDE_PLUGIN_ROOT}/scripts/`.
+Use the unified entry point `hwp_utils.py` or call individual scripts directly.
 
-### 파일 정보 확인
+### File Info
 
 ```bash
 python ${CLAUDE_PLUGIN_ROOT}/scripts/hwp_utils.py info /path/to/file.hwp
 ```
 
-자동으로 HWP/HWPX 포맷을 감지하고 파일 정보를 JSON으로 출력한다.
+Automatically detects HWP/HWPX format and outputs file info as JSON.
 
-### 텍스트 추출
+### Text Extraction
 
 ```bash
 python ${CLAUDE_PLUGIN_ROOT}/scripts/hwp_utils.py text /path/to/file.hwp
 python ${CLAUDE_PLUGIN_ROOT}/scripts/hwp_utils.py text /path/to/file.hwpx
 ```
 
-파일 타입을 자동 감지하여 적절한 리더를 사용한다.
+Auto-detects file type and uses the appropriate reader.
 
-### 표 추출
+### Table Extraction
 
 ```bash
 python ${CLAUDE_PLUGIN_ROOT}/scripts/hwp_utils.py tables /path/to/file.hwpx
 ```
 
-표 데이터를 JSON으로 출력한다. HWPX는 행/열 구조가 포함되고, HWP는 셀 내용만 순서대로 표시된다.
+Outputs table data as JSON. HWPX includes row/col structure; HWP lists cell contents in order.
 
-### 메타데이터 조회
+### Metadata
 
 ```bash
 python ${CLAUDE_PLUGIN_ROOT}/scripts/hwp_utils.py meta /path/to/file.hwp
 ```
 
-### 텍스트 치환 (HWPX만)
+### Text Replacement (HWPX only)
 
 ```bash
 python ${CLAUDE_PLUGIN_ROOT}/scripts/hwp_utils.py replace /path/to/file.hwpx \
-  --find "홍길동" --replace "김철수" --output /path/to/output.hwpx
+  --find "old text" --replace "new text" --output /path/to/output.hwpx
 ```
 
-`--output`을 생략하면 원본 파일을 덮어쓴다. 원본 보존이 필요하면 반드시 `--output`을 지정하거나, 실행 전에 원본을 백업한다.
+If `--output` is omitted, the original file is overwritten. Always use `--output` or back up the original to preserve it.
 
-### 표 셀 수정 (HWPX만)
+### Table Cell Editing (HWPX only)
 
 ```bash
 python ${CLAUDE_PLUGIN_ROOT}/scripts/hwp_utils.py cell /path/to/file.hwpx \
-  --table 0 --row 1 --col 2 --value "수정할 값" --output /path/to/output.hwpx
+  --table 0 --row 1 --col 2 --value "new value" --output /path/to/output.hwpx
 ```
 
-- `--table`: 표 인덱스 (0부터 시작)
-- `--row`, `--col`: 셀 위치 (0부터 시작)
+- `--table`: Table index (0-based)
+- `--row`, `--col`: Cell position (0-based)
 
-### 표 데이터 일괄 입력 (HWPX만)
+### Bulk Table Fill (HWPX only)
 
 ```bash
 python ${CLAUDE_PLUGIN_ROOT}/scripts/hwp_utils.py fill-table /path/to/file.hwpx \
-  --table 0 --data '[["이름","나이"],["홍길동","30"],["김철수","25"]]' \
+  --table 0 --data '[["Name","Age"],["Kim","30"],["Lee","25"]]' \
   --output /path/to/output.hwpx
 ```
 
-- `--data`: JSON 2차원 배열
-- `--start-row`, `--start-col`: 입력 시작 위치 (기본 0,0)
+- `--data`: JSON 2D array
+- `--start-row`, `--start-col`: Starting position (default 0,0)
 
-## 워크플로우 가이드
+## Workflow Guide
 
-### HWP 파일 내용 확인
+### Reading HWP Files
 
-1. `info` 명령으로 파일 타입 확인
-2. `text` 명령으로 텍스트 추출
-3. `tables` 명령으로 표 확인 (있다면)
+1. Use `info` to check file type
+2. Use `text` to extract text
+3. Use `tables` to read tables (if any)
 
-### HWPX 파일 수정
+### Editing HWPX Files
 
-1. `text` 또는 `tables`로 현재 내용 확인
-2. `replace`, `cell`, 또는 `fill-table`로 수정
-3. 수정 결과를 `text` 또는 `tables`로 확인
+1. Use `text` or `tables` to inspect current content
+2. Use `replace`, `cell`, or `fill-table` to modify
+3. Verify changes with `text` or `tables`
 
-### 주의사항
+### Important Notes
 
-- HWP (바이너리) 파일은 읽기만 가능하다. 수정이 필요하면 HWPX로 변환 후 작업한다.
-- HWPX 수정 시 원본 백업을 권장한다. `--output`으로 별도 파일에 저장하면 안전하다.
-- 모든 출력은 JSON 형식이다.
-- `olefile` 패키지가 없으면 HWP 바이너리 읽기가 실패한다. 에러 메시지에 설치 방법이 안내된다.
+- HWP (binary) files are read-only. Convert to HWPX for editing.
+- Back up HWPX files before editing. Use `--output` to save to a separate file.
+- All output is in JSON format.
+- If `olefile` is not installed, HWP binary reading will fail with an installation guide in the error message.

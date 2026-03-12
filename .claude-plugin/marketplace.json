@@ -4,13 +4,13 @@
     "name": "rooney"
   },
   "metadata": {
-    "description": "macOS/Linux에서 HWP/HWPX 파일을 다루는 Claude Code 플러그인"
+    "description": "Claude Code plugin for reading and editing HWP/HWPX files on macOS/Linux"
   },
   "plugins": [
     {
       "name": "hwp",
       "source": "./",
-      "description": "HWP/HWPX 파일 읽기/수정 도구 - 텍스트 추출, 표 읽기/수정, 텍스트 치환"
+      "description": "Read and edit HWP/HWPX files - text extraction, table reading/editing, text replacement"
     }
   ]
 }

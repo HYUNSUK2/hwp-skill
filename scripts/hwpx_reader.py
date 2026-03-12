@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HWPX 파일 읽기 - ZIP + XML 파싱"""
+"""HWPX file reader - ZIP + XML parsing"""
 import os
 import sys
 import json
@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from collections import OrderedDict
 
 
-# HWPX XML 네임스페이스
+# HWPX XML namespaces
 NAMESPACES = {
     "hp": "http://www.hancom.co.kr/hwpml/2011/paragraph",
     "hs": "http://www.hancom.co.kr/hwpml/2011/section",
@@ -23,7 +23,7 @@ NAMESPACES = {
     "odf": "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0",
 }
 
-# 네임스페이스 등록
+# Register namespaces
 for prefix, uri in NAMESPACES.items():
     ET.register_namespace(prefix, uri)
 
@@ -32,19 +32,19 @@ class HwpxReader:
     def __init__(self, filepath):
         self.filepath = filepath
         if not os.path.exists(filepath):
-            raise FileNotFoundError(f"파일을 찾을 수 없습니다: {filepath}")
+            raise FileNotFoundError(f"File not found: {filepath}")
 
     def _open_zip(self):
         return zipfile.ZipFile(self.filepath, "r")
 
     def _find_content_files(self, zf):
-        """content XML 파일들을 찾는다 (section0.xml, section1.xml, ...)"""
+        """Find content XML files (section0.xml, section1.xml, ...)"""
         content_files = []
         for name in sorted(zf.namelist()):
             lower = name.lower()
             if "contents/" in lower and lower.endswith(".xml") and "section" in lower:
                 content_files.append(name)
-        # section 파일이 없으면 content.xml 찾기
+        # Fallback to content.xml if no section files found
         if not content_files:
             for name in zf.namelist():
                 lower = name.lower()
@@ -53,32 +53,32 @@ class HwpxReader:
         return content_files
 
     def _extract_text_from_element(self, elem):
-        """XML 요소에서 텍스트를 재귀적으로 추출한다"""
+        """Recursively extract text from XML element"""
         texts = []
-        # 직접 텍스트
+        # Direct text
         if elem.text and elem.text.strip():
             texts.append(elem.text.strip())
 
         for child in elem:
             tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
 
-            # 텍스트 요소 — 직접 텍스트 추출
+            # Text element - extract text directly
             if tag in ("t", "T"):
                 if child.text:
                     texts.append(child.text)
-            # 무시할 요소
+            # Ignored elements
             elif tag in ("linesegarray", "lineBreak", "LineSeg"):
                 pass
-            # 문단 — 내부 탐색 후 줄바꿈 추가
+            # Paragraph - recurse then add newline
             elif tag in ("p", "P"):
                 sub = self._extract_text_from_element(child)
                 if sub:
                     texts.append(sub)
                 texts.append("\n")
-            # 줄바꿈
+            # Line break
             elif tag == "br":
                 texts.append("\n")
-            # 그 외 — 재귀 탐색
+            # Other elements - recurse
             else:
                 sub = self._extract_text_from_element(child)
                 if sub:
@@ -90,12 +90,12 @@ class HwpxReader:
         return "".join(texts)
 
     def read_text(self):
-        """전체 텍스트를 추출한다"""
+        """Extract all text from the document"""
         try:
             with self._open_zip() as zf:
                 content_files = self._find_content_files(zf)
                 if not content_files:
-                    return {"error": "콘텐츠 파일을 찾을 수 없습니다", "files": zf.namelist()}
+                    return {"error": "Content files not found", "files": zf.namelist()}
 
                 all_text = []
                 for cf in content_files:
@@ -114,12 +114,12 @@ class HwpxReader:
             return {"error": str(e)}
 
     def read_tables(self):
-        """표 데이터를 추출한다"""
+        """Extract table data from the document"""
         try:
             with self._open_zip() as zf:
                 content_files = self._find_content_files(zf)
                 if not content_files:
-                    return {"error": "콘텐츠 파일을 찾을 수 없습니다"}
+                    return {"error": "Content files not found"}
 
                 tables = []
                 table_idx = 0
@@ -128,7 +128,7 @@ class HwpxReader:
                     xml_data = zf.read(cf)
                     root = ET.fromstring(xml_data)
 
-                    # 모든 테이블 요소 찾기
+                    # Find all table elements
                     for tbl in self._find_tables(root):
                         table_data = self._parse_table(tbl)
                         if table_data:
@@ -146,7 +146,7 @@ class HwpxReader:
             return {"error": str(e)}
 
     def _find_tables(self, root):
-        """XML 트리에서 테이블 요소를 재귀적으로 찾는다"""
+        """Recursively find table elements in XML tree"""
         tables = []
         for elem in root.iter():
             tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
@@ -155,7 +155,7 @@ class HwpxReader:
         return tables
 
     def _parse_table(self, tbl_elem):
-        """테이블 요소를 2차원 배열로 파싱한다"""
+        """Parse table element into 2D array"""
         rows = []
         for child in tbl_elem.iter():
             tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
@@ -171,12 +171,12 @@ class HwpxReader:
         return rows
 
     def read_metadata(self):
-        """문서 메타데이터를 읽는다"""
+        """Read document metadata"""
         try:
             with self._open_zip() as zf:
                 meta = {"filename": os.path.basename(self.filepath)}
 
-                # META-INF/manifest.xml 확인
+                # Check META-INF/manifest.xml
                 for name in zf.namelist():
                     lower = name.lower()
                     if "meta" in lower and lower.endswith(".xml"):
@@ -187,7 +187,7 @@ class HwpxReader:
                         except Exception:
                             pass
 
-                # header.xml 확인
+                # Check header.xml
                 for name in zf.namelist():
                     lower = name.lower()
                     if "header" in lower and lower.endswith(".xml"):
@@ -204,7 +204,7 @@ class HwpxReader:
             return {"error": str(e)}
 
     def _extract_metadata_fields(self, root):
-        """메타데이터 XML에서 필드를 추출한다"""
+        """Extract fields from metadata XML"""
         fields = {}
         for elem in root.iter():
             tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
@@ -214,7 +214,7 @@ class HwpxReader:
         return fields
 
     def read_structure(self):
-        """문서 구조를 트리 형태로 반환한다"""
+        """Return document structure as a tree"""
         try:
             with self._open_zip() as zf:
                 structure = {"files": {}}
@@ -224,7 +224,7 @@ class HwpxReader:
                         "size": info.file_size,
                         "compressed": info.compress_size,
                     }
-                    # XML 파일이면 루트 태그 정보 추가
+                    # Add root tag info for XML files
                     if name.endswith(".xml"):
                         try:
                             xml_data = zf.read(name)
@@ -242,10 +242,10 @@ class HwpxReader:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="HWPX 파일 읽기 도구")
+    parser = argparse.ArgumentParser(description="HWPX file reader")
     parser.add_argument("command", choices=["text", "tables", "meta", "structure"],
-                        help="명령어: text, tables, meta, structure")
-    parser.add_argument("filepath", help="HWPX 파일 경로")
+                        help="Command: text, tables, meta, structure")
+    parser.add_argument("filepath", help="HWPX file path")
     args = parser.parse_args()
 
     reader = HwpxReader(args.filepath)

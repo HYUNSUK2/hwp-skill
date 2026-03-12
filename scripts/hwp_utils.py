@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HWP/HWPX 통합 유틸리티 - 파일 감지 및 통합 CLI 엔트리포인트"""
+"""HWP/HWPX unified utility - file type detection and unified CLI entry point"""
 import os
 import sys
 import json
@@ -9,17 +9,17 @@ import struct
 
 
 def detect_file_type(filepath):
-    """파일 타입을 자동 감지한다 (.hwp / .hwpx / unknown)"""
+    """Auto-detect file type (.hwp / .hwpx / unknown)"""
     if not os.path.exists(filepath):
         return "not_found"
 
     ext = os.path.splitext(filepath)[1].lower()
 
-    # 확장자 기반 1차 판별
+    # Extension-based detection
     if ext == ".hwpx":
         return "hwpx"
     if ext == ".hwp":
-        # OLE2 매직 바이트 확인
+        # Verify OLE2 magic bytes
         try:
             with open(filepath, "rb") as f:
                 magic = f.read(8)
@@ -29,14 +29,14 @@ def detect_file_type(filepath):
             pass
         return "hwp"
 
-    # 확장자 없으면 내용 기반 판별
+    # Content-based detection if no extension
     try:
         with open(filepath, "rb") as f:
             magic = f.read(8)
             if magic[:4] == b"\xd0\xcf\x11\xe0":
                 return "hwp"
             if magic[:4] == b"PK\x03\x04":
-                # ZIP인지 확인 후 HWPX 구조 확인
+                # Check if ZIP contains HWPX structure
                 try:
                     with zipfile.ZipFile(filepath, "r") as zf:
                         names = zf.namelist()
@@ -51,9 +51,9 @@ def detect_file_type(filepath):
 
 
 def get_file_info(filepath):
-    """파일 기본 정보를 반환한다"""
+    """Return basic file information"""
     if not os.path.exists(filepath):
-        return {"error": f"파일을 찾을 수 없습니다: {filepath}"}
+        return {"error": f"File not found: {filepath}"}
 
     file_type = detect_file_type(filepath)
     stat = os.stat(filepath)
@@ -85,49 +85,49 @@ def _human_size(size_bytes):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="HWP/HWPX 통합 도구")
-    subparsers = parser.add_subparsers(dest="command", help="명령어")
+    parser = argparse.ArgumentParser(description="HWP/HWPX unified tool")
+    subparsers = parser.add_subparsers(dest="command", help="Command")
 
     # info
-    p_info = subparsers.add_parser("info", help="파일 정보 조회")
-    p_info.add_argument("filepath", help="HWP/HWPX 파일 경로")
+    p_info = subparsers.add_parser("info", help="Show file info")
+    p_info.add_argument("filepath", help="HWP/HWPX file path")
 
     # text
-    p_text = subparsers.add_parser("text", help="텍스트 추출")
-    p_text.add_argument("filepath", help="HWP/HWPX 파일 경로")
+    p_text = subparsers.add_parser("text", help="Extract text")
+    p_text.add_argument("filepath", help="HWP/HWPX file path")
 
     # tables
-    p_tables = subparsers.add_parser("tables", help="표 추출")
-    p_tables.add_argument("filepath", help="HWP/HWPX 파일 경로")
+    p_tables = subparsers.add_parser("tables", help="Extract tables")
+    p_tables.add_argument("filepath", help="HWP/HWPX file path")
 
     # meta
-    p_meta = subparsers.add_parser("meta", help="메타데이터 조회")
-    p_meta.add_argument("filepath", help="HWP/HWPX 파일 경로")
+    p_meta = subparsers.add_parser("meta", help="Show metadata")
+    p_meta.add_argument("filepath", help="HWP/HWPX file path")
 
     # replace (hwpx only)
-    p_replace = subparsers.add_parser("replace", help="텍스트 치환 (HWPX만)")
-    p_replace.add_argument("filepath", help="HWPX 파일 경로")
-    p_replace.add_argument("--find", required=True, help="찾을 텍스트")
-    p_replace.add_argument("--replace", required=True, help="바꿀 텍스트")
-    p_replace.add_argument("--output", help="출력 파일 경로 (미지정시 원본 덮어쓰기)")
+    p_replace = subparsers.add_parser("replace", help="Replace text (HWPX only)")
+    p_replace.add_argument("filepath", help="HWPX file path")
+    p_replace.add_argument("--find", required=True, help="Text to find")
+    p_replace.add_argument("--replace", required=True, help="Replacement text")
+    p_replace.add_argument("--output", help="Output file path (overwrites original if omitted)")
 
     # cell (hwpx only)
-    p_cell = subparsers.add_parser("cell", help="표 셀 수정 (HWPX만)")
-    p_cell.add_argument("filepath", help="HWPX 파일 경로")
-    p_cell.add_argument("--table", type=int, required=True, help="표 인덱스 (0부터)")
-    p_cell.add_argument("--row", type=int, required=True, help="행 (0부터)")
-    p_cell.add_argument("--col", type=int, required=True, help="열 (0부터)")
-    p_cell.add_argument("--value", required=True, help="새 값")
-    p_cell.add_argument("--output", help="출력 파일 경로")
+    p_cell = subparsers.add_parser("cell", help="Edit table cell (HWPX only)")
+    p_cell.add_argument("filepath", help="HWPX file path")
+    p_cell.add_argument("--table", type=int, required=True, help="Table index (0-based)")
+    p_cell.add_argument("--row", type=int, required=True, help="Row (0-based)")
+    p_cell.add_argument("--col", type=int, required=True, help="Column (0-based)")
+    p_cell.add_argument("--value", required=True, help="New value")
+    p_cell.add_argument("--output", help="Output file path")
 
     # fill-table (hwpx only)
-    p_fill = subparsers.add_parser("fill-table", help="표 데이터 일괄 입력 (HWPX만)")
-    p_fill.add_argument("filepath", help="HWPX 파일 경로")
-    p_fill.add_argument("--table", type=int, required=True, help="표 인덱스 (0부터)")
-    p_fill.add_argument("--data", required=True, help="JSON 데이터 (2차원 배열)")
-    p_fill.add_argument("--start-row", type=int, default=0, help="시작 행")
-    p_fill.add_argument("--start-col", type=int, default=0, help="시작 열")
-    p_fill.add_argument("--output", help="출력 파일 경로")
+    p_fill = subparsers.add_parser("fill-table", help="Bulk fill table data (HWPX only)")
+    p_fill.add_argument("filepath", help="HWPX file path")
+    p_fill.add_argument("--table", type=int, required=True, help="Table index (0-based)")
+    p_fill.add_argument("--data", required=True, help="JSON 2D array data")
+    p_fill.add_argument("--start-row", type=int, default=0, help="Start row")
+    p_fill.add_argument("--start-col", type=int, default=0, help="Start column")
+    p_fill.add_argument("--output", help="Output file path")
 
     args = parser.parse_args()
 
@@ -139,14 +139,14 @@ def main():
     file_type = detect_file_type(filepath)
 
     if file_type == "not_found":
-        print(json.dumps({"error": f"파일을 찾을 수 없습니다: {filepath}"}, ensure_ascii=False))
+        print(json.dumps({"error": f"File not found: {filepath}"}, ensure_ascii=False))
         sys.exit(1)
 
     if args.command == "info":
         print(json.dumps(get_file_info(filepath), ensure_ascii=False, indent=2))
         return
 
-    # 읽기 명령 분기
+    # Read commands
     if args.command in ("text", "tables", "meta"):
         if file_type == "hwp":
             from hwp_reader import HwpReader
@@ -167,15 +167,15 @@ def main():
             elif args.command == "meta":
                 result = reader.read_metadata()
         else:
-            result = {"error": f"지원하지 않는 파일 형식입니다: {file_type}"}
+            result = {"error": f"Unsupported file type: {file_type}"}
 
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return
 
-    # 수정 명령 (hwpx만)
+    # Edit commands (hwpx only)
     if args.command in ("replace", "cell", "fill-table"):
         if file_type != "hwpx":
-            print(json.dumps({"error": "수정 기능은 HWPX 파일만 지원합니다. HWP 파일은 읽기만 가능합니다."}, ensure_ascii=False))
+            print(json.dumps({"error": "Edit operations are only supported for HWPX files. HWP files are read-only."}, ensure_ascii=False))
             sys.exit(1)
 
         from hwpx_editor import HwpxEditor

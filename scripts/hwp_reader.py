@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HWP 바이너리 (v5) 파일 읽기 - olefile 기반"""
+"""HWP binary (v5) file reader - olefile based"""
 import os
 import sys
 import json
@@ -8,27 +8,27 @@ import zlib
 
 
 class HwpReader:
-    """HWP v5 바이너리 파일 리더 (olefile 기반)"""
+    """HWP v5 binary file reader (olefile based)"""
 
     def __init__(self, filepath):
         self.filepath = filepath
         if not os.path.exists(filepath):
-            raise FileNotFoundError(f"파일을 찾을 수 없습니다: {filepath}")
+            raise FileNotFoundError(f"File not found: {filepath}")
 
     def read_text(self):
-        """HWP 파일에서 텍스트를 추출한다"""
+        """Extract text from HWP file"""
         try:
             import olefile
         except ImportError:
             return {
-                "error": "olefile 패키지가 필요합니다. 설치: pip install olefile",
+                "error": "olefile package is required. Install: pip install olefile",
             }
 
         try:
             ole = olefile.OleFileIO(self.filepath)
             texts = []
 
-            # BodyText 스트림에서 텍스트 추출
+            # Extract text from BodyText streams
             for stream_name in ole.listdir():
                 joined = "/".join(stream_name)
                 if joined.startswith("BodyText/") or joined.startswith("BodyText\\"):
@@ -45,7 +45,7 @@ class HwpReader:
             if not texts:
                 return {
                     "text": "",
-                    "message": "텍스트를 추출할 수 없습니다. 파일이 암호화되었거나 손상되었을 수 있습니다.",
+                    "message": "Could not extract text. The file may be encrypted or corrupted.",
                 }
 
             return {"text": "\n\n".join(texts), "sections": len(texts)}
@@ -53,21 +53,21 @@ class HwpReader:
             return {"error": str(e)}
 
     def _extract_text_from_bodytext(self, data):
-        """BodyText 스트림 바이너리에서 텍스트를 추출한다"""
-        # HWP v5 BodyText는 압축되어 있을 수 있다
+        """Extract text from BodyText stream binary"""
+        # HWP v5 BodyText may be compressed
         try:
             decompressed = zlib.decompress(data, -15)
         except Exception:
             decompressed = data
 
         texts = []
-        # HWP 레코드 구조 파싱
+        # Parse HWP record structure
         offset = 0
         while offset < len(decompressed):
             if offset + 4 > len(decompressed):
                 break
 
-            # 레코드 헤더 (4바이트)
+            # Record header (4 bytes)
             header = struct.unpack_from("<I", decompressed, offset)[0]
             tag_id = header & 0x3FF
             level = (header >> 10) & 0x3FF
@@ -76,7 +76,7 @@ class HwpReader:
             offset += 4
 
             if size == 0xFFF:
-                # 확장 크기 (4바이트 추가)
+                # Extended size (additional 4 bytes)
                 if offset + 4 > len(decompressed):
                     break
                 size = struct.unpack_from("<I", decompressed, offset)[0]
@@ -88,7 +88,7 @@ class HwpReader:
             record_data = decompressed[offset: offset + size]
             offset += size
 
-            # HWPTAG_PARA_TEXT = 67 (문단 텍스트)
+            # HWPTAG_PARA_TEXT = 67 (paragraph text)
             if tag_id == 67:
                 text = self._parse_para_text(record_data)
                 if text.strip():
@@ -97,7 +97,7 @@ class HwpReader:
         return "\n".join(texts)
 
     def _parse_para_text(self, data):
-        """문단 텍스트 레코드를 파싱한다"""
+        """Parse paragraph text record"""
         chars = []
         i = 0
         while i < len(data) - 1:
@@ -107,17 +107,14 @@ class HwpReader:
             if code == 0:
                 break
             elif code < 32:
-                # 제어 문자
-                if code == 13:  # 줄바꿈
+                # Control characters
+                if code == 13:  # Line break
                     chars.append("\n")
-                elif code == 10:  # 탭
+                elif code == 10:  # Tab
                     chars.append("\t")
                 elif code in (1, 2, 3, 11, 12, 14, 15, 16, 17, 18, 21, 22, 23):
-                    # 인라인/확장 제어 문자 - 추가 바이트 건너뛰기
-                    if code in (1, 2, 3, 11, 12, 14, 15, 16, 17, 18, 21, 22, 23):
-                        # 확장 제어: 추가 데이터를 건너뛴다
-                        pass
-                # 다른 제어 문자는 무시
+                    # Inline/extended control characters - skip additional bytes
+                    pass
             else:
                 try:
                     chars.append(chr(code))
@@ -127,17 +124,17 @@ class HwpReader:
         return "".join(chars)
 
     def read_metadata(self):
-        """HWP 파일 메타데이터를 읽는다"""
+        """Read HWP file metadata"""
         try:
             import olefile
         except ImportError:
-            return {"error": "olefile 패키지가 필요합니다. 설치: pip install olefile"}
+            return {"error": "olefile package is required. Install: pip install olefile"}
 
         try:
             ole = olefile.OleFileIO(self.filepath)
             meta = {"filename": os.path.basename(self.filepath)}
 
-            # OLE 메타데이터
+            # OLE metadata
             ole_meta = ole.get_metadata()
             if ole_meta:
                 for attr in ["title", "subject", "author", "keywords", "comments",
@@ -159,7 +156,7 @@ class HwpReader:
                     if val:
                         meta[attr] = str(val)
 
-            # FileHeader 스트림에서 HWP 버전 정보
+            # HWP version info from FileHeader stream
             try:
                 header_data = ole.openstream("FileHeader").read()
                 if len(header_data) >= 36:
@@ -174,7 +171,7 @@ class HwpReader:
             except Exception:
                 pass
 
-            # 스트림 목록
+            # Stream list
             meta["streams"] = ["/".join(s) for s in ole.listdir()]
 
             ole.close()
@@ -183,11 +180,11 @@ class HwpReader:
             return {"error": str(e)}
 
     def read_tables(self):
-        """HWP 파일에서 표를 추출한다 (제한적 지원)"""
+        """Extract tables from HWP file (limited support)"""
         try:
             import olefile
         except ImportError:
-            return {"error": "olefile 패키지가 필요합니다. 설치: pip install olefile"}
+            return {"error": "olefile package is required. Install: pip install olefile"}
 
         try:
             ole = olefile.OleFileIO(self.filepath)
@@ -206,7 +203,7 @@ class HwpReader:
                 except Exception:
                     decompressed = data
 
-                # 레코드 파싱하여 표 구조 추출
+                # Parse records to extract table structure
                 offset = 0
                 while offset < len(decompressed):
                     if offset + 4 > len(decompressed):
@@ -229,14 +226,14 @@ class HwpReader:
                     record_data = decompressed[offset: offset + size]
                     offset += size
 
-                    # HWPTAG_TABLE = 78 (표 시작)
+                    # HWPTAG_TABLE = 78 (table start)
                     if tag_id == 78:
                         if current_table:
                             tables.append(current_table)
                         current_table = []
                         in_table = True
 
-                    # HWPTAG_PARA_TEXT = 67 (문단 텍스트, 표 내부 셀)
+                    # HWPTAG_PARA_TEXT = 67 (paragraph text inside table cell)
                     elif tag_id == 67 and in_table:
                         text = self._parse_para_text(record_data)
                         if text.strip():
@@ -252,13 +249,13 @@ class HwpReader:
                 result_tables.append({
                     "index": idx,
                     "cells": tbl,
-                    "note": "HWP 바이너리에서 표의 행/열 구조를 정확히 복원하기 어렵습니다. 셀 내용만 순서대로 표시됩니다.",
+                    "note": "Row/column structure cannot be fully reconstructed from HWP binary. Cell contents are listed in order.",
                 })
 
             return {
                 "tables": result_tables,
                 "count": len(result_tables),
-                "note": "HWP 바이너리 표 추출은 제한적입니다. 정확한 행/열 구조가 필요하면 HWPX 포맷을 사용하세요.",
+                "note": "HWP binary table extraction is limited. Use HWPX format for accurate row/column structure.",
             }
         except Exception as e:
             return {"error": str(e)}
@@ -267,10 +264,10 @@ class HwpReader:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="HWP 바이너리 파일 읽기 도구")
+    parser = argparse.ArgumentParser(description="HWP binary file reader")
     parser.add_argument("command", choices=["text", "tables", "meta"],
-                        help="명령어: text, tables, meta")
-    parser.add_argument("filepath", help="HWP 파일 경로")
+                        help="Command: text, tables, meta")
+    parser.add_argument("filepath", help="HWP file path")
     args = parser.parse_args()
 
     reader = HwpReader(args.filepath)
